@@ -34,6 +34,7 @@
 #include "openudp.h"
 //===== applications
 #include "openapps.h"
+#include "debug.h"
 
 //=========================== variables =======================================
 
@@ -76,6 +77,8 @@ void openstack_init(void) {
 
    //===== applications
    openapps_init();
+   osens_init();
+   frmdwn_init();
 
    openserial_printInfo(
       COMPONENT_OPENWSN,ERR_BOOTED,

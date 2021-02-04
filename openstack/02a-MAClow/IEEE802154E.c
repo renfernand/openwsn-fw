@@ -17,6 +17,7 @@
 #include "sctimer.h"
 #include "openrandom.h"
 #include "msf.h"
+#include "debug.h"
 
 //=========================== definition ======================================
 
@@ -116,7 +117,7 @@ void ieee154e_init(void) {
     memset(&ieee154e_dbg,0,sizeof(ieee154e_dbg_t));
 
     // set singleChannel to 0 to enable channel hopping.
-    ieee154e_vars.singleChannel     = 0;
+    ieee154e_vars.singleChannel     = USE_SINGLE_CHANNEL;
     ieee154e_vars.isAckEnabled      = TRUE;
     ieee154e_vars.isSecurityEnabled = FALSE;
     ieee154e_vars.slotDuration      = TsSlotDuration;
@@ -560,8 +561,11 @@ port_INLINE void activity_synchronize_newSlot(void) {
         radio_rfOff();
 
         // update record of current channel
+#if USE_SINGLE_CHANNEL == 0
         ieee154e_vars.freq = (openrandom_get16b()&0x0F) + 11;
-
+#else
+        ieee154e_vars.freq = USE_SINGLE_CHANNEL;
+#endif
         // configure the radio to listen to the default synchronizing channel
         radio_setFrequency(ieee154e_vars.freq);
 
@@ -1929,6 +1933,7 @@ port_INLINE void activity_ri5(PORT_TIMER_WIDTH capturedTime) {
             // configure the radio for that frequency
             radio_setFrequency(ieee154e_vars.freq);
 #else
+            leds_radio_toggle();
             // arm rt5
             opentimers_scheduleAbsolute(
                 ieee154e_vars.timerId,                            // timerId
