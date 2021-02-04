@@ -18,11 +18,55 @@
 #include "board_info.h"
 
 //=========================== define ==========================================
+#define SINK                 0
 
-static const uint8_t infoStackName[] = "OpenWSN ";
+#define ENABLE_MULTICHANNEL    0
+#define USE_SINGLE_CHANNEL     20    //zero indica multi channel
+
+//se desejar habilitar a seguranca do pacote devo definir L2_SECURITY_ACTIVE
+//#define L2_SECURITY_ACTIVE 1
+
+#if SINK
+#define ENABLE_BRIDGE_UART0       1     //Quando DAGROOT ele fica enviando os logs comuns na serial...isso atrapalha o debug
+#define ENABLE_DEBUG_RFF          0     //imprime na serial o debug 0x11
+#define DBG_USING_UART1           0     //quando 1 indica que o debug 0x11 vai para UART1 (somente util qdo dagROOT)
+#define DAGROOT_ENABLE_ONSTARTUP  1
+#define DAGROOT                   1
+#else
+#define ENABLE_BRIDGE_UART0       0     //Quando DAGROOT ele fica enviando os logs comuns na serial...isso atrapalha o debug
+#define ENABLE_DEBUG_RFF          1     //imprime na serial o debug 0x11
+#define DBG_USING_UART1           0     //quando 1 indica que o debug 0x11 vai para UART1 (somente util qdo dagROOT)
+#define DAGROOT_ENABLE_ONSTARTUP  0
+#endif
+
+#if ENABLE_DEBUG_RFF
+#define DEBUG_LOG_RIT         1
+#define DBG_IEEE802_TX        1
+#define DBG_IEEE802_RX        1
+#define DBG_RPL               1
+#define DBG_FORWARDING        1
+#define DBG_CSMACA            0
+#define DBG_IEEE802_TIMER     0
+#define DBG_RADIO_POWER_CONS  0
+#define DBG_OPENQUEUE         0
+#define DBG_APP_1             0     //debug aplicacao - arquivo bsp\osens_itf_mote
+#else
+#define DEBUG_LOG_RIT         0
+#define DBG_IEEE802_TX        0
+#define DBG_IEEE802_RX        0
+#define DBG_RPL               0
+#define DBG_FORWARDING        0
+#define DBG_CSMACA            0
+#define DBG_IEEE802_TIMER     0
+#define DBG_RADIO_POWER_CONS  0
+#define DBG_OPENQUEUE         0
+#define DBG_APP_1             0     //debug aplicacao - arquivo bsp\osens_itf_mote
+#endif
+
+static const uint8_t infoStackName[] = "OWSNRFF ";
 #define OPENWSN_VERSION_MAJOR     1
 #define OPENWSN_VERSION_MINOR     22
-#define OPENWSN_VERSION_PATCH     1
+#define OPENWSN_VERSION_PATCH     5
 
 #ifndef TRUE
 #define TRUE 1
@@ -32,14 +76,69 @@ static const uint8_t infoStackName[] = "OpenWSN ";
 #define FALSE 0
 #endif
 
-#define LENGTH_ADDR16b   2
-#define LENGTH_ADDR64b   8
-#define LENGTH_ADDR128b  16
+
+#define FRM_DOWNLOAD           1          //Enable the Firmware download handling
+#define MYLINKXS_SENSORS       0          // Enable the sensors described below
+
+//ATENCAO!!!!! SOMENTE DEVE SER ESCOLHIDO UM SENSOR ABAIXO
+#if  (MYLINKXS_SENSORS == 1)
+	#define SENSOR_ACCEL            0     // accelerometer sensor for the smartrf06 evaluation board
+    #define SONOMA14                1     // Enable the power consume board
+    #define MYLINKXS_REMOTE_CONTROL 0     // This enables serial communication via arduino using UART1
+    #define MYLINKXS_LIGHT_CONTROL  0     // Enables control of a lamp on the board itself - no external board required
+    //define porta de comunicacao
+	//define the SENS_ITF UART or SPI : SPI --> USE_SPI_INTERFACE = 1 or UART --> USE_SPI_INTERFACE = 0
+	#if ((SENSOR_ACCEL == 1) || (SONOMA14 == 1))
+	#define USE_SPI_INTERFACE  1
+	#else
+	#define USE_SPI_INTERFACE  0
+	#endif
+
+	#define BYTE_END_FRAME 'Z'   //used for REMOTE_CONTROL
+
+#else
+#define USE_SPI_INTERFACE  0
+#endif
+
+
+#define LENGTH_ADDR16b  2
+#define LENGTH_ADDR64b  8
+#define LENGTH_ADDR128b 16
 
 #define MAXNUMNEIGHBORS  30
 
 // maximum celllist length
 #define CELLLIST_MAX_LEN 5
+
+//teste rff
+//flag de identificacao das camadas para facilitar debug
+#define RFF_IEEE802_TX               0x10
+#define RFF_IEEE802_OLA              0x11
+#define RFF_IEEE802_RX               0x15
+#define RFF_IEEE802_TIMER            0x16
+#define RFF_IEEE802_RADIO            0x17
+#define RFF_SIXTOP_RX                0x25
+#define RFF_SIXTOP_TX                0x20
+#define RFF_COMPONENT_FORWARDING_TX  0x30
+#define RFF_COMPONENT_FORWARDING_RX  0x35
+#define RFF_ICMPv6RPL_RX             0x45
+#define RFF_ICMPv6RPL_TX             0x40
+#define RFF_ICMPv6ECHO_RX            0x55
+#define RFF_ICMPv6ECHO_TX            0x50
+#define RFF_ICMPv6ECHO_RX            0x55
+#define RFF_COMPONENT_OPENCOAP_TX    0x60
+#define RFF_COMPONENT_OPENCOAP_RX    0x65
+#define RFF_COMPONENT_STORMCOAP_TX   0x70
+#define RFF_COMPONENT_STORMCOAP_RX   0x75
+#define RFF_OPENBRIDGE_TX            0x80
+#define RFF_OPENBRIDGE_RX            0x85
+#define RFF_OSENS                    0x90
+
+
+#define RFF_IEEE802_CW               0xFE
+
+#define RFF_OPENQUEUE_ALLOC          0xA0
+#define RFF_OPENQUEUE_FREE           0xA5
 
 enum {
    E_SUCCESS                           = 0,
@@ -86,12 +185,12 @@ enum {
 // warning: first 4 MSB of 2° octect may coincide with previous protocol number
 enum {
    //UDP
-   WKP_UDP_COAP                        =    5683,
-   WKP_UDP_ECHO                        =       7,
+   WKP_UDP_COAP                        =  5683,
+   WKP_UDP_ECHO                        =     7,
    WKP_UDP_EXPIRATION                  =       5,
    WKP_UDP_MONITOR                     =       3,
    WKP_UDP_INJECT                      =   61617,// 0xf0b1
-   WKP_UDP_RINGMASTER                  =   15000,
+   WKP_UDP_RINGMASTER                  = 15000,
    WKP_UDP_SERIALBRIDGE                =    2001,
 };
 
@@ -109,7 +208,8 @@ enum {
    STATUS_NEIGHBORS                    =  9,
    STATUS_KAPERIOD                     = 10,
    STATUS_JOINED                       = 11,
-   STATUS_MAX                          = 12,
+   STATUS_RFF                          = 12,
+   STATUS_MAX                          = 13,
 };
 
 //component identifiers
@@ -155,7 +255,7 @@ enum {
    COMPONENT_OPENCOAP                  = 0x18,
    // applications
    COMPONENT_C6T                       = 0x19,
-   COMPONENT_CEXAMPLE                  = 0x1a,
+   COMPONENT_CFRMDWN                   = 0x1a,
    COMPONENT_CINFO                     = 0x1b,
    COMPONENT_CLEDS                     = 0x1c,
    COMPONENT_CSENSORS                  = 0x1d,
@@ -263,6 +363,14 @@ enum {
    ERR_REPLAY_FAILED                   = 0x48, // OSCOAP replay protection failed
    ERR_DECRYPTION_FAILED               = 0x49, // OSCOAP decryption and tag verification failed
    ERR_ABORT_JOIN_PROCESS              = 0x4a, // Aborted join process (code location {0})
+   // Frm download
+   ERR_WRONG_OPTION                    = 0x4A, // OPT ERROR   (status {0} , value {1})
+   ERR_FRWUPD_WRITE_FLASH              = 0x4B, // Wrong Address (status {0} , value {1})
+   ERR_FRWUPD_WRONG_ADDRESS            = 0x4C, // Wrong Address (status {0} , value {1})
+   ERR_FRWUPD_FCTEQUAL                 = 0x4D, // Write Flash (status {0} , value {1})
+   ERR_FRWUPD_FCTREPLACE               = 0x4E, // Write Flash (status {0} , value {1})
+   ERR_FRWUPD_FCTINSERT                = 0x4F, // Loop Infinity (status {0} , value {1})
+
 };
 
 //=========================== typedef =========================================
@@ -304,35 +412,35 @@ END_PACK
 
 typedef struct {
    //admin
-   uint8_t       creator;                                       // the component which called getFreePacketBuffer()
-   uint8_t       owner;                                         // the component which currently owns the entry
-   uint8_t*      payload;                                       // pointer to the start of the payload within 'packet'
-   uint8_t       length;                                        // length in bytes of the payload
+   uint8_t       creator;                        // the component which called getFreePacketBuffer()
+   uint8_t       owner;                          // the component which currently owns the entry
+   uint8_t*      payload;                        // pointer to the start of the payload within 'packet'
+   uint8_t       length;                         // length in bytes of the payload
    //l7
    uint16_t      max_delay;                                     // Max delay in milliseconds before which the packet should be delivered to the receiver
    bool          orgination_time_flag;
    bool          drop_flag;
    bool          is_cjoin_response;
    //l4
-   uint8_t       l4_protocol;                                   // l4 protocol to be used
-   bool          l4_protocol_compressed;                        // is the l4 protocol header compressed?
-   uint16_t      l4_sourcePortORicmpv6Type;                     // l4 source port
-   uint16_t      l4_destination_port;                           // l4 destination port
-   uint8_t*      l4_payload;                                    // pointer to the start of the payload of l4 (used for retransmits)
-   uint8_t       l4_length;                                     // length of the payload of l4 (used for retransmits)
+   uint8_t       l4_protocol;                    // l4 protocol to be used
+   bool          l4_protocol_compressed;         // is the l4 protocol header compressed?
+   uint16_t      l4_sourcePortORicmpv6Type;      // l4 source port
+   uint16_t      l4_destination_port;            // l4 destination port
+   uint8_t*      l4_payload;                     // pointer to the start of the payload of l4 (used for retransmits)
+   uint8_t       l4_length;                      // length of the payload of l4 (used for retransmits)
    //l3
-   open_addr_t   l3_destinationAdd;                             // 128b IPv6 destination (down stack)
-   open_addr_t   l3_sourceAdd;                                  // 128b IPv6 source address
+   open_addr_t   l3_destinationAdd;              // 128b IPv6 destination (down stack)
+   open_addr_t   l3_sourceAdd;                   // 128b IPv6 source address
    bool          l3_useSourceRouting;                           // TRUE when the packet goes downstream
    //l2
-   owerror_t     l2_sendDoneError;                              // outcome of trying to send this packet
-   open_addr_t   l2_nextORpreviousHop;                          // 64b IEEE802.15.4 next (down stack) or previous (up) hop address
-   uint8_t       l2_frameType;                                  // beacon, data, ack, cmd
-   uint8_t       l2_dsn;                                        // sequence number of the received frame
-   uint8_t       l2_retriesLeft;                                // number Tx retries left before packet dropped (dropped when hits 0)
-   uint8_t       l2_numTxAttempts;                              // number Tx attempts
-   asn_t         l2_asn;                                        // at what ASN the packet was Tx'ed or Rx'ed
-   uint8_t*      l2_payload;                                    // pointer to the start of the payload of l2 (used for MAC to fill in ASN in ADV)
+   owerror_t     l2_sendDoneError;               // outcome of trying to send this packet
+   open_addr_t   l2_nextORpreviousHop;           // 64b IEEE802.15.4 next (down stack) or previous (up) hop address
+   uint8_t       l2_frameType;                   // beacon, data, ack, cmd
+   uint8_t       l2_dsn;                         // sequence number of the received frame
+   uint8_t       l2_retriesLeft;                 // number Tx retries left before packet dropped (dropped when hits 0)
+   uint8_t       l2_numTxAttempts;               // number Tx attempts
+   asn_t         l2_asn;                         // at what ASN the packet was Tx'ed or Rx'ed
+   uint8_t*      l2_payload;                     // pointer to the start of the payload of l2 (used for MAC to fill in ASN in ADV)
    cellInfo_ht   l2_sixtop_celllist_add[CELLLIST_MAX_LEN];      // record celllist to be added and will be added when 6P response sendDone
    cellInfo_ht   l2_sixtop_celllist_delete[CELLLIST_MAX_LEN];   // record celllist to be removed and will be removed when 6P response sendDone
    uint16_t      l2_sixtop_frameID;                             // frameID in 6P message
@@ -340,10 +448,10 @@ typedef struct {
    uint8_t       l2_sixtop_command;                             // command of the received 6p request, recorded in 6p response
    uint8_t       l2_sixtop_cellOptions;                         // celloptions, used when 6p response senddone. (it's the same with cellOptions in 6p request but with TX and RX bits have been flipped)
    uint8_t       l2_sixtop_returnCode;                          // return code in 6P response
-   uint8_t*      l2_ASNpayload;                                 // pointer to the ASN in EB
+   uint8_t*      l2_ASNpayload;                  // pointer to the ASN in EB
    uint8_t*      l2_nextHop_payload;                            // pointer to the nexthop address in frame
-   uint8_t       l2_joinPriority;                               // the join priority received in EB
-   bool          l2_IEListPresent;                              // did have IE field?
+   uint8_t       l2_joinPriority;                // the join priority received in EB
+   bool          l2_IEListPresent;               //did have IE field?
    bool          l2_payloadIEpresent;                           // did I have payload IE field
    bool          l2_joinPriorityPresent;
    bool          l2_isNegativeACK;                              // is the negative ACK?
@@ -358,12 +466,12 @@ typedef struct {
    uint8_t       commandFrameIdentifier;                        // used in case of Command Frames
    uint8_t*      l2_FrameCounter;                               // pointer to the FrameCounter in the MAC header
    //l1 (drivers)
-   uint8_t       l1_txPower;                                    // power for packet to Tx at
-   int8_t        l1_rssi;                                       // RSSI of received packet
-   uint8_t       l1_lqi;                                        // LQI of received packet
-   bool          l1_crc;                                        // did received packet pass CRC check?
+   uint8_t       l1_txPower;                     // power for packet to Tx at
+   int8_t        l1_rssi;                        // RSSI of received packet
+   uint8_t       l1_lqi;                         // LQI of received packet
+   bool          l1_crc;                         // did received packet pass CRC check?
    //the packet
-   uint8_t       packet[1+1+125+2+1];                           // 1B spi address, 1B length, 125B data, 2B CRC, 1B LQI
+   uint8_t       packet[1+1+125+2+1];            // 1B spi address, 1B length, 125B data, 2B CRC, 1B LQI
 } OpenQueueEntry_t;
 
 

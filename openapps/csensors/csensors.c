@@ -10,13 +10,13 @@
 #include "packetfunctions.h"
 #include "openqueue.h"
 #include "idmanager.h"
-#include "opensensors.h"
+//#include "opensensors.h"
 #include "sensors.h"
 #include "scheduler.h"
 #include "openserial.h"
 #include "IEEE802154E.h"
 #include "openrandom.h"
-
+#if 0
 //=========================== defines =========================================
 
 const uint8_t csensors_path0[]                  = "s";
@@ -284,22 +284,22 @@ owerror_t csensors_receive(
       parsed.
 */
 void csensors_timer_cb(opentimers_id_t id){
-    uint8_t i;
+   uint8_t i;
 
-    for(i=0;i<csensors_vars.numCsensors;i++) {
-        if (csensors_vars.csensors_resource[i].timerId == i) {
-            csensors_vars.cb_list[csensors_vars.cb_put] = i;
-            csensors_vars.cb_put = (csensors_vars.cb_put+1)%CSENSORSTASKLIST;
-            opentimers_scheduleIn(
-                csensors_vars.csensors_resource[i].timerId,
-                csensors_vars.csensors_resource[i].period,
-                TIME_MS,
-                TIMER_ONESHOT,
-                csensors_timer_cb
-            );
-            break;
-        }
-    }
+   for(i=0;i<csensors_vars.numCsensors;i++) {
+      if (csensors_vars.csensors_resource[i].timerId == i) {
+         csensors_vars.cb_list[csensors_vars.cb_put] = i;
+         csensors_vars.cb_put = (csensors_vars.cb_put+1)%CSENSORSTASKLIST;
+         opentimers_scheduleIn(
+             csensors_vars.csensors_resource[i].timerId,
+             csensors_vars.csensors_resource[i].period,
+             TIME_MS,
+             TIMER_ONESHOT,
+             csensors_timer_cb
+         );
+         break;
+      }
+   }
     // calling the task directly as the timer_cb function is executed in
     // task mode by opentimer already
     csensors_task_cb();
@@ -462,6 +462,6 @@ void csensors_sendDone(OpenQueueEntry_t* msg, owerror_t error) {
 }
 
 
-
+#endif
 
 

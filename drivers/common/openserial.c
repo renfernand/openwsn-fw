@@ -28,6 +28,7 @@
 #include "icmpv6echo.h"
 #include "msf.h"
 #include "debugpins.h"
+#include "osens.h"
 
 //=========================== variables =======================================
 
@@ -115,6 +116,9 @@ void openserial_init(void) {
         isr_openserial_rx
     );
     uart_enableInterrupts();
+
+
+
 }
 
 void openserial_register(openserial_rsvpt* rsvp) {
@@ -379,6 +383,8 @@ void task_openserial_debugPrint(void) {
             if (debugPrint_joined()==TRUE) {
                 break;
             }
+        case STATUS_RFF:
+            break;
         default:
             debugPrintCounter=0;
     }
@@ -859,9 +865,8 @@ void openserial_handleCommands(void){
 //===== misc
 
 void openserial_debugPrint_timer_cb(opentimers_id_t id){
-    // calling the task directly as the timer_cb function is executed in
-    // task mode by opentimer already
-    task_openserial_debugPrint();
+	//leds_radio_toggle();
+    scheduler_push_task(task_openserial_debugPrint,TASKPRIO_OPENSERIAL);
 }
 
 void openserial_board_reset_cb(opentimers_id_t id) {
